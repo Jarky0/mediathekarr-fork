@@ -627,7 +627,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
             MatchType.Contains => attributeValue.Contains(filter.Value.ToString(), StringComparison.OrdinalIgnoreCase),
             MatchType.Regex => Regex.IsMatch(attributeValue, filter.Value.ToString()),
             MatchType.GreaterThan => double.TryParse(attributeValue, out var attrValue) && double.TryParse(filter.Value.ToString(), out var filterValue) && attrValue > filterValue * 60,
-            MatchType.LessThan => double.TryParse(attributeValue, out var attrValue) && double.TryParse(filter.Value.ToString(), out var filterValue) && attrValue < filterValue * 60,
+            MatchType.LowerThan => double.TryParse(attributeValue, out var attrValue) && double.TryParse(filter.Value.ToString(), out var filterValue) && attrValue < filterValue * 60,
             _ => false,
         };
     }

@@ -6,5 +6,5 @@ public enum MatchType
     Contains,
     Regex,
     GreaterThan,
-    LessThan
+    LowerThan
 }
