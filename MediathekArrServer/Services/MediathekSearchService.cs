@@ -154,7 +154,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
         {
             // Fallback to best effort matching 
             newznabItems = desiredEpisodes
-                .SelectMany(episode => MediathekSearchFallbackHandler.GetFallbackSearchResultItemsById(apiResponse, episode, tvdbData))
+                .SelectMany(episode => MediathekSearchFallbackHandler.GetFallbackSearchResultItemsById(apiResponse, episode, tvdbData, _logger))
                 .ToList();
         }
         else
