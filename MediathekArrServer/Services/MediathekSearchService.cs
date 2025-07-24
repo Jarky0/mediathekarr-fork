@@ -639,7 +639,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
     private async Task<(List<MatchedEpisodeInfo> matchedEpisodes, List<ApiResultItem> unmatchedFilteredResultItems)> ApplyRulesetFilters(List<ApiResultItem> results, TvdbData? tvdbData = null)
     {
         var matchedFilteredResults = new List<MatchedEpisodeInfo>();
-        var unmatchedFilteredResults = new List<ApiResultItem>(results);
+        var unmatchedFilteredResults = new List<ApiResultItem>();
 
         foreach (var item in results)
         {
@@ -658,7 +658,6 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
             {
                 if (!ruleset.Filters.All(filter => FilterMatches(item, filter)))
                 {
-                    unmatchedFilteredResults.Remove(item);
                     continue; // Skip this ruleset if any filter fails
                 }
 
@@ -690,7 +689,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
                 }
                 else
                 {
-                    unmatchedFilteredResults.Remove(item);
+                    unmatchedFilteredResults.Add(item);
                 }
             }
         }
@@ -907,7 +906,18 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
 
     public static bool ShouldSkipItem(ApiResultItem item)
     {
-        return item.UrlVideo.EndsWith(".m3u8") || _skipTitleKeywords.Any(item.Title.Contains) || _skipUrlKeywords.Any(item.UrlWebsite.Contains);
+        if (item.UrlVideo.EndsWith(".m3u8") || _skipTitleKeywords.Any(item.Title.Contains))
+        {
+            return true;
+        }
+
+        // TODO determine if we should keep skipUrlKeywords ard base64 or not.  Mediathekview very often has this wrong.
+        return item.Channel switch
+        {
+            "ARD" => _skipUrlKeywords.Any(item.UrlWebsite.Contains),
+            "SWR" => _skipUrlKeywords.Any(item.UrlVideo.Contains),
+            _ => false
+        };
     }
 
     [GeneratedRegex(@"[&]")]
