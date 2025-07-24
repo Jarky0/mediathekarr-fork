@@ -13,11 +13,12 @@ using MatchType = MediathekArr.Models.Rulesets.MatchType;
 
 namespace MediathekArr.Services;
 
-public partial class MediathekSearchService(IHttpClientFactory httpClientFactory, IMemoryCache cache, ItemLookupService itemLookupService)
+public partial class MediathekSearchService(IHttpClientFactory httpClientFactory, IMemoryCache cache, ItemLookupService itemLookupService, ILogger<MediathekSearchService> logger)
 {
     private readonly IMemoryCache _cache = cache;
     private readonly ItemLookupService _itemLookupService = itemLookupService;
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("MediathekClient");
+    private readonly ILogger<MediathekSearchService> _logger = logger;
     private readonly TimeSpan _cacheTimeSpan = TimeSpan.FromMinutes(55);
     private static readonly string[] _skipTitleKeywords = ["Audiodeskription", "Hörfassung", "(klare Sprache)", "Gebärdensprache", "Trailer", "Outtakes:"];
     private static readonly string[] _skipUrlKeywords = ["YXVkaW9kZXNrcmlwdGlvbg"]; // base64 for ARD, YXVkaW9kZXNrcmlwdGlvbg = audiodeskription

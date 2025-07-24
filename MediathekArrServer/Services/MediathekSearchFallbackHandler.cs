@@ -12,14 +12,14 @@ namespace MediathekArr.Services;
 
 public partial class MediathekSearchFallbackHandler
 {
-    public static List<Item> GetFallbackSearchResultItemsById(string? apiResponse, Models.Tvdb.Episode episode, Models.Tvdb.Data tvdbData)
+    public static List<Item> GetFallbackSearchResultItemsById(string? apiResponse, Models.Tvdb.Episode episode, Models.Tvdb.Data tvdbData, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(apiResponse) || tvdbData.Name.Length <= 3)
         {
             return [];
         }
 
-        var filteredResponse = ApplyFilters(apiResponse, episode);
+        var filteredResponse = ApplyFilters(apiResponse, episode, logger);
         var seasonNumber = episode.SeasonNumber.ToString();
         var episodeNumber = episode.EpisodeNumber.ToString();
         return filteredResponse?.Result.Results.SelectMany(item => GenerateRssItems(item, seasonNumber, episodeNumber, tvdbData)).ToList() ?? [];
@@ -200,7 +200,7 @@ public partial class MediathekSearchFallbackHandler
         return title;
     }
 
-    private static MediathekApiResponse? ApplyFilters(string apiResponse, Models.Tvdb.Episode episode)
+    private static MediathekApiResponse? ApplyFilters(string apiResponse, Models.Tvdb.Episode episode, ILogger logger)
     {
         var responseObject = JsonSerializer.Deserialize<MediathekApiResponse>(apiResponse);
 
@@ -218,6 +218,7 @@ public partial class MediathekSearchFallbackHandler
         // if more than 3 results we assume episode title match wasn't correct
         if (resultsByEpisodeTitleMatch.Count > 3)
         {
+            logger.LogInformation("clearing resultsByEpisodeTitleMatch because it has more than 3 items.");
             resultsByEpisodeTitleMatch.Clear();
         }
 
