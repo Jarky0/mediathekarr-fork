@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace MediathekArrDownloader.Models.SABnzbd;
+namespace MediathekArr.Models.SABnzbd;
 
-public class SabnzbdQueue
+public class Queue
 {
     [JsonPropertyName("paused")]
     public bool Paused => false;
@@ -11,5 +11,5 @@ public class SabnzbdQueue
     public string KbPerSec => "0";
 
     [JsonPropertyName("slots")]
-    public List<SabnzbdQueueItem> Items { get; set; }
+    public List<QueueItem> Items { get; set; }
 }
