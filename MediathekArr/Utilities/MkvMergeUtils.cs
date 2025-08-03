@@ -58,7 +58,12 @@ public static class MkvMergeUtils
                 logger.LogError("mkvmerge process error output: {Error}", mkvmergeError);
             }
 
-            if (process.ExitCode != 0)
+            if (process.ExitCode == 1)
+            {
+                logger.LogWarning("mkvmerge had warnings for {Title}: Stdout: {mkvmergeOutput}", title, mkvmergeOutput);
+                return (true, process.ExitCode, mkvmergeError);
+            }
+            else if (process.ExitCode != 0)
             {
                 logger.LogError("mkvmerge conversion failed for {Title}. Exit code: {ExitCode}.", title, process.ExitCode);
                 return (false, process.ExitCode, string.IsNullOrWhiteSpace(mkvmergeError) ? "Unknown error" : mkvmergeError);
