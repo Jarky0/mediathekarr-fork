@@ -41,7 +41,7 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="static\download\js\wizard.js">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	  <None Update="static\download\wizard.html">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

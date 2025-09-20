@@ -92,6 +92,7 @@ async function updateOrCreateIndexer() {
     } else {
         payload.appProfileId = selectedAppProfileId;
         payload.enable = true;
+        payload.redirect = true;
         if (!selectedIndexerDetails) {
             payload.added = new Date().toISOString();
         }
@@ -267,6 +268,7 @@ async function testIndexerSettings() {
         enableRss: true,
         enableAutomaticSearch: true,
         enableInteractiveSearch: true,
+        redirect: true,
         protocol: "usenet",
         priority: 25,
         ...(selectedIndexerId ? { id: selectedIndexerId } : {}),
