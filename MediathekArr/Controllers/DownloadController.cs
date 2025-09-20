@@ -2,7 +2,9 @@
 using MediathekArr.Models.SABnzbd;
 using MediathekArr.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Web;
 
 namespace MediathekArr.Controllers;
 
@@ -42,13 +44,58 @@ public partial class DownloadController(DownloadService downloadService, Config 
     }
 
     [HttpPost("api")]
-    public async Task<IActionResult> AddFile([FromQuery] string mode, [FromQuery] string cat)
+    public async Task<IActionResult> AddFileEndpoint([FromQuery] string mode, [FromQuery] string cat, [FromQuery] string? name)
     {
-        if (mode != "addfile")
+        if (mode == "addfile")
+        {
+            return await AddFileByNzb(cat);
+        }
+        else if(mode == "addurl" && !string.IsNullOrWhiteSpace(name))
+        {
+            return await AddFileByUrl(cat, name);
+        }
+        else
         {
             return BadRequest(new { error = "Invalid mode" });
         }
 
+    }
+
+    private async Task<IActionResult> AddFileByUrl(string cat, string name)
+    {
+        var uri = new Uri(name);
+        var query = HttpUtility.ParseQueryString(uri.Query);
+        string encodedVideoUrl = query["encodedVideoUrl"];
+        string encodedTitle = query["encodedTitle"]?.Trim() ?? string.Empty;
+        string encodedSubtitleUrl = query["encodedSubtitleUrl"] ?? string.Empty;
+        var base64EncodedBytesVideoUrl = Convert.FromBase64String(encodedVideoUrl);
+        string decodedVideoUrl = Encoding.UTF8.GetString(base64EncodedBytesVideoUrl);
+        var base64EncodedBytesTitle = Convert.FromBase64String(encodedTitle);
+        string decodedTitle = Encoding.UTF8.GetString(base64EncodedBytesTitle);
+        string decodedSubtitleUrl;
+        if (string.IsNullOrEmpty(encodedSubtitleUrl))
+        {
+            decodedSubtitleUrl = string.Empty;
+        }
+        else
+        {
+            var base64EncodedBytesSubtitleUrl = Convert.FromBase64String(encodedSubtitleUrl);
+            decodedSubtitleUrl = Encoding.UTF8.GetString(base64EncodedBytesSubtitleUrl);
+        }
+
+        // Add to the download queue using DownloadService and capture the created queue item
+        var queueItem = _downloadService.AddToQueue(decodedVideoUrl, decodedSubtitleUrl, decodedTitle, cat);
+
+        // Return response in the specified format
+        return Ok(new
+        {
+            status = true,
+            nzo_ids = new[] { queueItem.Id }
+        });
+    }
+
+    private async Task<IActionResult> AddFileByNzb(string cat)
+    {
         // Read the fake NZB file from the request body
         using var reader = new StreamReader(Request.Body);
         var requestBody = await reader.ReadToEndAsync();
@@ -75,7 +122,7 @@ public partial class DownloadController(DownloadService downloadService, Config 
         return Ok(new
         {
             status = true,
-            nzo_ids = new[] { queueItem.Id}
+            nzo_ids = new[] { queueItem.Id }
         });
     }
 
