@@ -101,6 +101,50 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
         return string.Empty;
     }
 
+    private async Task<List<ApiResultItem>> FetchCachedApiResponseForTvdbId(Models.Tvdb.Data tvdbData)
+    {
+        var cacheKey = $"mediathekapi_{tvdbData.Id}";
+
+        if (_cache.TryGetValue(cacheKey, out List<ApiResultItem>? cachedResults))
+        {
+            return cachedResults ?? [];
+        }
+
+        var searchQuery = tvdbData.GermanName.Replace(" & ", " ") ?? tvdbData.Name.Replace(" & ", " ");
+        if (searchQuery.Contains('('))
+        {
+            // if title contains year or other information in brackets like (DE), remove it
+            searchQuery = searchQuery.Split('(')[0];
+        }
+        searchQuery = searchQuery.Trim();
+
+        var rulesetTopics = GetTopicsForTvdbId(tvdbData.Id);
+        var additionalTopics = rulesetTopics
+            .Where(t => !t.Equals(searchQuery, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var allQueries = new List<List<object>>
+        {
+            new() { new { fields = _queryFields, query = searchQuery } }
+        };
+        foreach (var topic in additionalTopics)
+        {
+            allQueries.Add([new { fields = new[] { "topic" }, query = topic }]);
+        }
+
+        var tasks = allQueries.Select(q => FetchMediathekViewApiResponseAsync(q, 10000));
+        var responses = await Task.WhenAll(tasks);
+
+        var allResults = responses
+            .Where(r => !string.IsNullOrEmpty(r))
+            .SelectMany(r => JsonSerializer.Deserialize<MediathekApiResponse>(r)?.Result.Results ?? [])
+            .DistinctBy(item => item.UrlVideo)
+            .ToList();
+
+        _cache.Set(cacheKey, allResults, _cacheTimeSpan);
+        return allResults;
+    }
+
     public async Task<string> FetchSearchResultsFromApiById(Models.Tvdb.Data tvdbData, string? season, string? episodeNumber, int limit, int offset)
     {
         var cacheKey = $"tvdb_{tvdbData.Id}_{season ?? "null"}_{episodeNumber ?? "null"}_{limit}_{offset}";
@@ -118,44 +162,21 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
             return response;
         }
 
-        var mediathekViewRequestCacheKey = $"mediathekapi_{tvdbData.Id}";
-        string apiResponse = string.Empty;
-        if (_cache.TryGetValue(mediathekViewRequestCacheKey, out string? cachedApiResponse))
+        var results = await FetchCachedApiResponseForTvdbId(tvdbData);
+        if (results.Count == 0)
         {
-            apiResponse = cachedApiResponse ?? string.Empty;
-        }
-        else
-        {
-            var searchQuery = tvdbData.GermanName.Replace(" & ", " ") ?? tvdbData.Name.Replace(" & ", " ");
-            if (searchQuery.Contains('(')) // if title contains year or other information in brackets like (DE), remove it
-            {
-                searchQuery = searchQuery.Split('(')[0];
-            }
-            var queries = new List<object>
-                {
-                    new { fields = _queryFields, query = searchQuery }
-                };
-
-            apiResponse = await FetchMediathekViewApiResponseAsync(queries, 10000);
-
-            if (string.IsNullOrEmpty(apiResponse))
-            {
-                return NewznabUtils.SerializeRss(NewznabUtils.GetEmptyRssResult());
-            }
-
-            _cache.Set(mediathekViewRequestCacheKey, apiResponse, _cacheTimeSpan);
+            return NewznabUtils.SerializeRss(NewznabUtils.GetEmptyRssResult());
         }
 
-        var results = JsonSerializer.Deserialize<MediathekApiResponse>(apiResponse)?.Result.Results ?? [];
         var (matchedEpisodes, unmatchedFilteredResultItems) = await ApplyRulesetFilters(results, tvdbData);
         var matchedDesiredEpisodes = ApplyDesiredEpisodeFilter(matchedEpisodes, desiredEpisodes);
 
         List<Item>? newznabItems;
         if (matchedDesiredEpisodes.Count == 0 && desiredEpisodes?.Count > 0)
         {
-            // Fallback to best effort matching 
+            // Fallback to best effort matching
             newznabItems = desiredEpisodes
-                .SelectMany(episode => MediathekSearchFallbackHandler.GetFallbackSearchResultItemsById(apiResponse, episode, tvdbData, _logger))
+                .SelectMany(episode => MediathekSearchFallbackHandler.GetFallbackSearchResultItemsById(results, episode, tvdbData, _logger))
                 .ToList();
         }
         else
@@ -635,6 +656,25 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
     private List<Ruleset> GetRulesetsForTopic(string topic)
     {
         return _rulesetsByTopic.TryGetValue(topic, out var rulesets) ? rulesets : [];
+    }
+
+    private List<string> GetTopicsForTvdbId(long tvdbId)
+    {
+        var topics = new HashSet<string>();
+        foreach (var rulesetList in _rulesetsByTopic.Values)
+        {
+            foreach (var ruleset in rulesetList)
+            {
+                if (ruleset.Media?.TvdbId == tvdbId)
+                {
+                    foreach (var topic in ruleset.Topics)
+                    {
+                        topics.Add(topic);
+                    }
+                }
+            }
+        }
+        return [.. topics];
     }
 
     private async Task<(List<MatchedEpisodeInfo> matchedEpisodes, List<ApiResultItem> unmatchedFilteredResultItems)> ApplyRulesetFilters(List<ApiResultItem> results, Models.Tvdb.Data? tvdbData = null)

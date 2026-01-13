@@ -19,8 +19,7 @@ public class Ruleset
     {
         get
         {
-            // Split the Topic string by commas and return as a list
-            return Topic.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            return Topic.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         }
     }
 

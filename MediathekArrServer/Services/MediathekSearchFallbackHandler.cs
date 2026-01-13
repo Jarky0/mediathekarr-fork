@@ -12,17 +12,17 @@ namespace MediathekArr.Services;
 
 public partial class MediathekSearchFallbackHandler
 {
-    public static List<Item> GetFallbackSearchResultItemsById(string? apiResponse, Models.Tvdb.Episode episode, Models.Tvdb.Data tvdbData, ILogger logger)
+    public static List<Item> GetFallbackSearchResultItemsById(List<ApiResultItem> results, Models.Tvdb.Episode episode, Models.Tvdb.Data tvdbData, ILogger logger)
     {
-        if (string.IsNullOrWhiteSpace(apiResponse) || tvdbData.Name.Length <= 3)
+        if (results.Count == 0 || tvdbData.Name.Length <= 3)
         {
             return [];
         }
 
-        var filteredResponse = ApplyFilters(apiResponse, episode, logger);
+        var filteredResults = ApplyFilters(results, episode, logger);
         var seasonNumber = episode.SeasonNumber.ToString();
         var episodeNumber = episode.EpisodeNumber.ToString();
-        return filteredResponse?.Result.Results.SelectMany(item => GenerateRssItems(item, seasonNumber, episodeNumber, tvdbData)).ToList() ?? [];
+        return filteredResults.SelectMany(item => GenerateRssItems(item, seasonNumber, episodeNumber, tvdbData)).ToList();
     }
 
     public static List<Item> GetFallbackSearchResultItemsByString(List<ApiResultItem>? unmatchedFilteredResultItems, string? season)
@@ -200,17 +200,9 @@ public partial class MediathekSearchFallbackHandler
         return title;
     }
 
-    private static MediathekApiResponse? ApplyFilters(string apiResponse, Models.Tvdb.Episode episode, ILogger logger)
+    private static List<ApiResultItem> ApplyFilters(List<ApiResultItem> results, Models.Tvdb.Episode episode, ILogger logger)
     {
-        var responseObject = JsonSerializer.Deserialize<MediathekApiResponse>(apiResponse);
-
-        if (responseObject?.Result?.Results == null)
-        {
-            return null;
-        }
-
-        var initialResults = responseObject.Result.Results;
-        var resultsFilteredByRuntime = FilterByRuntime(initialResults, episode.Runtime);
+        var resultsFilteredByRuntime = FilterByRuntime(results, episode.Runtime);
         var resultsByTitleDate = FilterByTitleDate(resultsFilteredByRuntime, episode.Aired).Where(item => !MediathekSearchService.ShouldSkipItem(item)).ToList();
         var resultsByDescriptionDate = FilterByDescriptionDate(resultsFilteredByRuntime, episode.Aired).Where(item => !MediathekSearchService.ShouldSkipItem(item)).ToList();
         var resultsByEpisodeTitleMatch = FilterByEpisodeTitleMatch(resultsFilteredByRuntime, episode.Name).Where(item => !MediathekSearchService.ShouldSkipItem(item)).ToList();
@@ -227,24 +219,13 @@ public partial class MediathekSearchFallbackHandler
             // Only trust Mediathek season/episode if no other match (aside from airedDate):
             resultsBySeasonEpisodeMatch =
                 FilterBySeasonEpisodeMatch(resultsFilteredByRuntime, episode.SeasonNumber.ToString(), episode.EpisodeNumber.ToString())
-                .Where(item => !MediathekSearchService.ShouldSkipItem(item)).ToList(); ;
+                .Where(item => !MediathekSearchService.ShouldSkipItem(item)).ToList();
         }
 
         // HashSet to remove duplicates
-        HashSet<ApiResultItem> filteredResults = [ .. resultsByTitleDate, .. resultsByDescriptionDate, .. resultsByEpisodeTitleMatch, .. resultsBySeasonEpisodeMatch];
+        HashSet<ApiResultItem> filteredResults = [.. resultsByTitleDate, .. resultsByDescriptionDate, .. resultsByEpisodeTitleMatch, .. resultsBySeasonEpisodeMatch];
 
-        // Create a filtered API response
-        var filteredApiResponse = new MediathekApiResponse
-        {
-            Result = new MediathekApiResult
-            {
-                Results = [.. filteredResults],
-                QueryInfo = responseObject.Result.QueryInfo
-            },
-            Err = responseObject.Err
-        };
-
-        return filteredApiResponse;
+        return [.. filteredResults];
     }
 
     private static List<ApiResultItem> FilterByRuntime(List<ApiResultItem> results, int? runtime)
