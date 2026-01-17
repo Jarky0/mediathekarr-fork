@@ -314,7 +314,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
         }
 
         string? episode;
-        if (ruleset.SeasonRegex != null && StaticEpisodeRegex().IsMatch(ruleset.EpisodeRegex))
+        if (ruleset.EpisodeRegex != null && StaticEpisodeRegex().IsMatch(ruleset.EpisodeRegex))
         {
             // If EpisodeRegex is in the format "E0nnn", use it directly
             episode = ruleset.EpisodeRegex[1..];

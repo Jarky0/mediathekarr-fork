@@ -130,6 +130,13 @@ static Config ConfigureAppConfig(IConfiguration configuration, ILogger logger)
         config.Categories = categoriesRaw.Split(',');
     }
 
+    var maxParallelDownloadsRaw = Environment.GetEnvironmentVariable("MAX_PARALLEL_DOWNLOADS");
+    if (!string.IsNullOrEmpty(maxParallelDownloadsRaw) && int.TryParse(maxParallelDownloadsRaw, out var maxParallelDownloads) && maxParallelDownloads >= 1)
+    {
+        logger.LogInformation("Overriding max parallel downloads from environment variable: {MaxParallelDownloads}", maxParallelDownloads);
+        config.MaxParallelDownloads = maxParallelDownloads;
+    }
+
     if (!existingConfig && (string.IsNullOrEmpty(incompletePath) || string.IsNullOrEmpty(completePath) || string.IsNullOrEmpty(categoriesRaw)))
     {
         logger.LogWarning("Attention!");

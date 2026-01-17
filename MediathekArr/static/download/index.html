@@ -57,6 +57,12 @@
                 </div>
                 <small id="categoriesWarning" style="color: red; display:none;">Overwritten by environment variable</small>
             </div>
+            <div>
+                <label>Max Parallel Downloads:</label>
+                <input type="number" id="maxParallelDownloads" min="1" max="10" style="width: 80px;" />
+                <small id="maxParallelWarning" style="color: red; display:none;">Overwritten by environment variable</small>
+                <small style="color: #666; display: block;">Changes require restart to take effect</small>
+            </div>
             <button type="button" class="button-group" onclick="saveConfig()">Save</button>
             <button type="button" class="button-group" onclick="closeConfigModal()">Close</button>
         </form>

@@ -4,6 +4,8 @@ let initialCompletePath = '';
 let categories = [];
 let initialCategories = [];
 let categoriesOverridden = false;
+let initialMaxParallelDownloads = 2;
+let maxParallelDownloadsOverridden = false;
 
 async function fetchQueue() {
     try {
@@ -55,9 +57,14 @@ async function openConfigModal() {
 
     // Handle categories
     categories = config.categories || [];
-    initialCategories = [...categories]; // Create a copy
+    initialCategories = [...categories];
     categoriesOverridden = overrides.categories;
     renderCategories();
+
+    // Handle max parallel downloads
+    document.getElementById('maxParallelDownloads').value = config.maxParallelDownloads || 2;
+    initialMaxParallelDownloads = config.maxParallelDownloads || 2;
+    maxParallelDownloadsOverridden = overrides.maxParallelDownloads;
 
     const incompleteInput = document.getElementById('incompletePath');
     const completeInput = document.getElementById('completePath');
@@ -100,6 +107,17 @@ async function openConfigModal() {
         newCategoryInput.disabled = false;
         categoriesAddButton.disabled = false;
         categoriesWarning.style.display = 'none';
+    }
+
+    // Handle Max Parallel Downloads
+    const maxParallelInput = document.getElementById('maxParallelDownloads');
+    const maxParallelWarning = document.getElementById('maxParallelWarning');
+    if (maxParallelDownloadsOverridden) {
+        maxParallelInput.disabled = true;
+        maxParallelWarning.style.display = 'block';
+    } else {
+        maxParallelInput.disabled = false;
+        maxParallelWarning.style.display = 'none';
     }
 
     // Show the modal
@@ -266,14 +284,14 @@ function closeFileBrowser() {
 
 function closeConfigModal(promptUser = true) {
     if (promptUser) {
-        const incompletePath = document.getElementById('incompletePath').value;
-        const completePath = document.getElementById('completePath').value;
-        const categoriesChanged = JSON.stringify(categories) !== JSON.stringify(initialCategories);
+        const configChanged =
+            document.getElementById('incompletePath').value !== initialIncompletePath ||
+            document.getElementById('completePath').value !== initialCompletePath ||
+            JSON.stringify(categories) !== JSON.stringify(initialCategories) ||
+            parseInt(document.getElementById('maxParallelDownloads').value) !== initialMaxParallelDownloads;
 
-        if (incompletePath !== initialIncompletePath || completePath !== initialCompletePath || categoriesChanged) {
-            if (!confirm('You didn\'t save your changes - are you sure you want to close?')) {
-                return;
-            }
+        if (configChanged && !confirm('You didn\'t save your changes - are you sure you want to close?')) {
+            return;
         }
     }
     document.getElementById('configModal').style.display = 'none';
@@ -282,6 +300,7 @@ function closeConfigModal(promptUser = true) {
 async function saveConfig() {
     const incompletePath = document.getElementById('incompletePath').value;
     const completePath = document.getElementById('completePath').value;
+    const maxParallelDownloads = parseInt(document.getElementById('maxParallelDownloads').value) || 2;
 
     const response = await fetch('/download/config', {
         method: 'POST',
@@ -291,12 +310,17 @@ async function saveConfig() {
         body: JSON.stringify({
             incompletePath,
             completePath,
-            categories
+            categories,
+            maxParallelDownloads
         }),
     });
 
     if (response.ok) {
+        const result = await response.json();
         closeConfigModal(false);
+        if (result.requiresRestart) {
+            alert('Configuration saved. Please restart the application for the parallel downloads setting to take effect.');
+        }
     } else {
         alert('Failed to save configuration.');
     }

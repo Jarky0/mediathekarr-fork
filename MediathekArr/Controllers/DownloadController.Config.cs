@@ -11,6 +11,7 @@ public partial class DownloadController
         var incompleteEnv = Environment.GetEnvironmentVariable("DOWNLOAD_INCOMPLETE_PATH");
         var completeEnv = Environment.GetEnvironmentVariable("DOWNLOAD_COMPLETE_PATH");
         var categoriesEnv = Environment.GetEnvironmentVariable("CATEGORIES");
+        var maxParallelDownloadsEnv = Environment.GetEnvironmentVariable("MAX_PARALLEL_DOWNLOADS");
 
         // Parse categories from environment variable if present
         if (!string.IsNullOrEmpty(categoriesEnv))
@@ -28,7 +29,8 @@ public partial class DownloadController
             {
                 IncompletePath = !string.IsNullOrEmpty(incompleteEnv),
                 CompletePath = !string.IsNullOrEmpty(completeEnv),
-                Categories = !string.IsNullOrEmpty(categoriesEnv)
+                Categories = !string.IsNullOrEmpty(categoriesEnv),
+                MaxParallelDownloads = !string.IsNullOrEmpty(maxParallelDownloadsEnv)
             }
         };
 
@@ -41,6 +43,9 @@ public partial class DownloadController
         var incompleteEnv = Environment.GetEnvironmentVariable("DOWNLOAD_INCOMPLETE_PATH");
         var completeEnv = Environment.GetEnvironmentVariable("DOWNLOAD_COMPLETE_PATH");
         var categoriesEnv = Environment.GetEnvironmentVariable("CATEGORIES");
+        var maxParallelDownloadsEnv = Environment.GetEnvironmentVariable("MAX_PARALLEL_DOWNLOADS");
+
+        bool requiresRestart = false;
 
         // Prevent updates to fields overridden by environment variables
         if (string.IsNullOrEmpty(incompleteEnv))
@@ -65,6 +70,15 @@ public partial class DownloadController
             }
         }
 
+        if (string.IsNullOrEmpty(maxParallelDownloadsEnv))
+        {
+            if (_config.MaxParallelDownloads != newConfig.MaxParallelDownloads)
+            {
+                _config.MaxParallelDownloads = Math.Clamp(newConfig.MaxParallelDownloads, 1, 10);
+                requiresRestart = true;
+            }
+        }
+
         // Persist updated config to file
         var configPathEnv = Environment.GetEnvironmentVariable("CONFIG_PATH");
 
@@ -83,7 +97,7 @@ public partial class DownloadController
         }
         System.IO.File.WriteAllText(configFilePath, System.Text.Json.JsonSerializer.Serialize(_config, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
 
-        return Ok(new { status = "success" });
+        return Ok(new { status = "success", requiresRestart });
     }
 
 

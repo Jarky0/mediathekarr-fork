@@ -17,7 +17,7 @@ public partial class DownloadService
     private readonly ConcurrentQueue<QueueItem> _downloadQueue = new();
     private readonly List<HistoryItem> _downloadHistory = [];
     private readonly HttpClient _httpClient;
-    private static readonly SemaphoreSlim _semaphore = new(2); // Limit concurrent downloads to 2
+    private readonly SemaphoreSlim _semaphore;
     private readonly string _mkvMergePath;
     private readonly bool _isWindows;
 
@@ -27,6 +27,10 @@ public partial class DownloadService
         _config = config;
         _httpClient = httpClientFactory.CreateClient("MediathekClient");
         _isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        var maxParallelDownloads = Math.Clamp(config.MaxParallelDownloads, 1, 10);
+        _semaphore = new SemaphoreSlim(maxParallelDownloads);
+        _logger.LogInformation("Download service initialized with {MaxParallelDownloads} parallel downloads", maxParallelDownloads);
 
         // Set complete_dir based on the application's startup path
         var startupPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty;
