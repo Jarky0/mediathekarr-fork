@@ -19,6 +19,7 @@ public partial class DownloadService
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _semaphore;
     private readonly string _mkvMergePath;
+    private readonly string _ffmpegPath;
     private readonly bool _isWindows;
 
     public DownloadService(ILogger<DownloadService> logger, Config config, IHttpClientFactory httpClientFactory)
@@ -35,13 +36,17 @@ public partial class DownloadService
         // Set complete_dir based on the application's startup path
         var startupPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty;
         _mkvMergePath = _isWindows ? Path.Combine(startupPath, "mkvtoolnix", "mkvmerge.exe") : "mkvmerge";
+        _ffmpegPath = Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
 
         InitializeIncompleteDirectory();
         InitializeCompleteDirectories();
         CleanupAbandondedFilesInCompleteDirectory();
 
-        // Ensure Mkvmerge is available
-        Task.Run(() => MkvMergeUtils.EnsureMkvMergeExistsAsync(_mkvMergePath, _logger, _httpClient)).Wait();
+        // Ensure Mkvmerge and Ffmpeg are available
+        Task.WhenAll(
+            Task.Run(() => MkvMergeUtils.EnsureMkvMergeExistsAsync(_mkvMergePath, _logger, _httpClient)),
+            Task.Run(() => FfmpegUtils.EnsureFfmpegExistsAsync(_ffmpegPath, _logger))
+        ).Wait();
     }
 
     public void InitializeCompleteDirectories()
@@ -137,13 +142,19 @@ public partial class DownloadService
 
     public QueueItem AddToQueue(string videoUrl, string subtitleUrl, string fileName, string category)
     {
+        var sanitizedFileName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(sanitizedFileName))
+        {
+            throw new ArgumentException("Invalid file name.", nameof(fileName));
+        }
+
         var queueItem = new QueueItem
         {
             Status = DownloadStatus.Queued,
             Index = _downloadQueue.Count,
             Timeleft = "10:00:00",
             Size = "0",
-            Title = fileName,
+            Title = sanitizedFileName,
             Category = category,
             Sizeleft = "0",
             Percentage = "0"
@@ -166,19 +177,21 @@ public partial class DownloadService
         {
             _logger.LogInformation("Starting download for {Title} from URL: {URL}", queueItem.Title, videoUrl);
 
-            var downloadVideoTask = DownloadFileAsync(videoUrl, queueItem);
+            var isM3u8 = videoUrl.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase);
+            var inputExtension = isM3u8 ? ".ts" : ".mp4";
+
+            var downloadVideoTask = isM3u8
+                ? DownloadM3u8FileAsync(videoUrl, queueItem)
+                : DownloadFileAsync(videoUrl, queueItem);
             var downloadSubtitlesTask = DownloadSubtitlesAsync(subtitleUrl, queueItem);
+
             await Task.WhenAll(downloadVideoTask, downloadSubtitlesTask);
             var subtitlesAvailable = downloadSubtitlesTask.Result;
 
             if (queueItem.Status != DownloadStatus.Failed)
             {
                 _logger.LogInformation("Download complete for {Title}. Starting conversion to MKV.", queueItem.Title);
-                await ConvertMp4ToMkvAsync(queueItem, stopwatch, subtitlesAvailable);
-            }
-            else
-            {
-                _logger.LogWarning("Download failed for {Title}, skipping conversion.", queueItem.Title);
+                await ConvertToMkvAsync(queueItem, stopwatch, subtitlesAvailable, inputExtension);
             }
         }
         catch (Exception ex)
@@ -348,20 +361,20 @@ public partial class DownloadService
         return true;
     }
 
-    private async Task ConvertMp4ToMkvAsync(QueueItem queueItem, Stopwatch stopwatch, bool subtitlesAvailable)
+    private async Task ConvertToMkvAsync(QueueItem queueItem, Stopwatch stopwatch, bool subtitlesAvailable, string inputExtension)
     {
         var completeCategoryDir = Path.Combine(_config.CompletePath, queueItem.Category);
         _logger.LogInformation("Ensuring complete directory exists at path: {Path}", completeCategoryDir);
         Directory.CreateDirectory(completeCategoryDir);
 
-        var mp4Path = Path.Combine(_config.IncompletePath, queueItem.Title + ".mp4");
+        var videoPath = Path.Combine(_config.IncompletePath, queueItem.Title + inputExtension);
         var subtitlePath = Path.Combine(_config.IncompletePath, queueItem.Title + ".srt");
         var mkvPath = Path.Combine(completeCategoryDir, queueItem.Title + ".mkv");
 
-        if (!File.Exists(mp4Path))
+        if (!File.Exists(videoPath))
         {
             queueItem.Status = DownloadStatus.Failed;
-            _logger.LogWarning("MP4 file not found for conversion. Path: {Mp4Path}. Marking as failed.", mp4Path);
+            _logger.LogWarning("Video file not found for conversion. Path: {VideoPath}. Marking as failed.", videoPath);
             return;
         }
 
@@ -372,12 +385,12 @@ public partial class DownloadService
         }
 
         // Temporarily remove umlauts as mkvmerge can't handle them on linux
-        var mp4PathWithoutUmlauts = mp4Path.RemoveUmlauts();
+        var videoPathWithoutUmlauts = videoPath.RemoveUmlauts();
         var subtitlePathWithoutUmlauts = subtitlePath.RemoveUmlauts();
         var mkvPathWithoutUmlauts = mkvPath.RemoveUmlauts();
-        if (mp4PathWithoutUmlauts != mp4Path)
+        if (videoPathWithoutUmlauts != videoPath)
         {
-            File.Move(mp4Path, mp4PathWithoutUmlauts);
+            File.Move(videoPath, videoPathWithoutUmlauts);
         }
         if (subtitlesAvailable && subtitlePathWithoutUmlauts != subtitlePath)
         {
@@ -385,9 +398,9 @@ public partial class DownloadService
         }
 
         queueItem.Status = DownloadStatus.Extracting;
-        _logger.LogInformation("Starting conversion of {Title} from MP4 to MKV. MP4 Path: {Mp4Path}, MKV Path: {MkvPath}", queueItem.Title, mp4Path, mkvPathWithoutUmlauts);
+        _logger.LogInformation("Starting conversion of {Title} to MKV. Video Path: {VideoPath}, MKV Path: {MkvPath}", queueItem.Title, videoPath, mkvPathWithoutUmlauts);
 
-        var (success, exitCode, errorOutput) = await MkvMergeUtils.StartMkvmergeProcessAsync(_mkvMergePath, mp4PathWithoutUmlauts, subtitlePathWithoutUmlauts, mkvPathWithoutUmlauts, subtitlesAvailable, queueItem.Title, _logger);
+        var (success, exitCode, errorOutput) = await MkvMergeUtils.StartMkvmergeProcessAsync(_mkvMergePath, videoPathWithoutUmlauts, subtitlePathWithoutUmlauts, mkvPathWithoutUmlauts, subtitlesAvailable, queueItem.Title, _logger);
 
         // Restore umlauts so *arrs correctly identify the show
         if (mkvPathWithoutUmlauts != mkvPath)
@@ -406,7 +419,7 @@ public partial class DownloadService
             _logger.LogError("Mkvmerge conversion failed for {Title}. Exit code: {ExitCode}. Error output: {ErrorOutput}", queueItem.Title, exitCode, errorOutput);
         }
 
-        DeleteTemporaryFiles(mp4PathWithoutUmlauts, subtitlePathWithoutUmlauts, subtitlesAvailable);
+        DeleteTemporaryFiles(videoPathWithoutUmlauts, subtitlePathWithoutUmlauts, subtitlesAvailable);
 
         double sizeInMB = 0;
         if (double.TryParse(queueItem.Size.Replace("GB", "").Replace("MB", "").Trim(), out double size))
@@ -433,11 +446,11 @@ public partial class DownloadService
             queueItem.Title, queueItem.Status, historyItem.DownloadTime, historyItem.Size);
     }
 
-    public void DeleteTemporaryFiles(string mp4Path, string subtitlePath, bool subtitlesAvailable)
+    public void DeleteTemporaryFiles(string videoPath, string subtitlePath, bool subtitlesAvailable)
     {
         try
         {
-            File.Delete(mp4Path);
+            File.Delete(videoPath);
             if (subtitlesAvailable)
             {
                 File.Delete(subtitlePath);
