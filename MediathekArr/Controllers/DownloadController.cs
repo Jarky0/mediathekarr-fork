@@ -102,18 +102,20 @@ public partial class DownloadController(DownloadService downloadService, Config 
 
         string[] lines = requestBody.Split(Environment.NewLine);
 
-        var filenameMatch = FileNameRegex().Match(lines[6]);
-        var videoUrlMatch = UrlRegex().Match(lines[7]);
-        var subtitleUrlMatch = UrlRegex().Match(lines[8]);
+        var filenameMatch = CommentRegex().Match(lines[6]);
+        var videoUrlMatch = CommentRegex().Match(lines[7]);
+        var subtitleUrlMatch = CommentRegex().Match(lines[8]);
 
         if (!filenameMatch.Success || !videoUrlMatch.Success)
         {
             return BadRequest(new { error = "Invalid NZB format" });
         }
 
-        var fileName = $"{filenameMatch.Groups[1].Value.Trim()}";
-        var videoDownloadUrl = videoUrlMatch.Groups[1].Value;
-        var subtitleDownloadUrl = subtitleUrlMatch.Groups[1].Value;
+        var fileName = Encoding.UTF8.GetString(Convert.FromBase64String(filenameMatch.Groups[1].Value.Trim()));
+        var videoDownloadUrl = Encoding.UTF8.GetString(Convert.FromBase64String(videoUrlMatch.Groups[1].Value.Trim()));
+        var subtitleDownloadUrl = subtitleUrlMatch.Success
+            ? Encoding.UTF8.GetString(Convert.FromBase64String(subtitleUrlMatch.Groups[1].Value.Trim()))
+            : string.Empty;
 
         // Add to the download queue using DownloadService and capture the created queue item
         var queueItem = _downloadService.AddToQueue(videoDownloadUrl, subtitleDownloadUrl, fileName, cat);
@@ -204,7 +206,5 @@ public partial class DownloadController(DownloadService downloadService, Config 
     }
 
     [GeneratedRegex(@"<!--\s*([^<>]+)\s*-->")]
-    private static partial Regex FileNameRegex();
-    [GeneratedRegex(@"<!--\s*(https?://[^\s]+)\s*-->")]
-    private static partial Regex UrlRegex();
+    private static partial Regex CommentRegex();
 }

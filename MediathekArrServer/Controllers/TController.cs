@@ -86,36 +86,11 @@ public class TController(MediathekSearchService mediathekSearchService, ItemLook
     [HttpGet("fake_nzb_download")]
     public IActionResult FakeNzbDownload([FromQuery] string encodedVideoUrl, [FromQuery] string? encodedSubtitleUrl, [FromQuery] string encodedTitle)
     {
-        string decodedVideoUrl;
-        string decodedTitle;
-        string decodedSubtitleUrl;
-        try
-            {
-            var base64EncodedBytesVideoUrl = Convert.FromBase64String(encodedVideoUrl);
-            decodedVideoUrl = Encoding.UTF8.GetString(base64EncodedBytesVideoUrl);
-            var base64EncodedBytesTitle = Convert.FromBase64String(encodedTitle);
-            decodedTitle = Encoding.UTF8.GetString(base64EncodedBytesTitle);
-            if (string.IsNullOrEmpty(encodedSubtitleUrl))
-            {
-                decodedSubtitleUrl = string.Empty;
-            }
-            else
-            {
-                var base64EncodedBytesSubtitleUrl = Convert.FromBase64String(encodedSubtitleUrl);
-                decodedSubtitleUrl = Encoding.UTF8.GetString(base64EncodedBytesSubtitleUrl);
-            }            
-        }
-        catch (FormatException)
-        {
-            return BadRequest("Invalid base64 string.");
-        }
-
-        // Define a basic NZB XML structure with the comment and encoded URL.
         var nzbContent = $@"<?xml version=""1.0"" encoding=""UTF-8"" ?>
 <!DOCTYPE nzb PUBLIC ""-//newzBin//DTD NZB 1.0//EN"" ""http://www.newzbin.com/DTD/nzb/nzb-1.0.dtd"">
-<!-- {decodedTitle} -->
-<!-- {decodedVideoUrl} -->
-<!-- {decodedSubtitleUrl} -->
+<!-- {encodedTitle} -->
+<!-- {encodedVideoUrl} -->
+<!-- {encodedSubtitleUrl ?? string.Empty} -->
 <nzb>
     <file post_id=""1"">
         <groups>
