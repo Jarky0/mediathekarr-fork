@@ -886,7 +886,7 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
         title = title.Replace("–", "-");
         title = title.RemoveAccentButKeepGermanUmlauts();
         title = TitleRegexUnd().Replace(title, "and");
-        title = TitleRegexSymbols().Replace(title, ""); // Remove various symbols
+        title = TitleRegexInvalidChars().Replace(title, ""); // Remove invalid characters
         title = TitleRegexWhitespace().Replace(title, ".").Replace("..", ".");
 
         return title;
@@ -963,8 +963,8 @@ public partial class MediathekSearchService(IHttpClientFactory httpClientFactory
 
     [GeneratedRegex(@"[&]")]
     private static partial Regex TitleRegexUnd();
-    [GeneratedRegex(@"[/:;,""'’@#?$%^*+=!|<>,()|·]")]
-    private static partial Regex TitleRegexSymbols();
+    [GeneratedRegex(@"[/:;,""„""’’‚’@#?$%^*+=!|<>,()|·]")]
+    private static partial Regex TitleRegexInvalidChars();
     [GeneratedRegex(@"\s+")]
     private static partial Regex TitleRegexWhitespace();
     [GeneratedRegex(@"^S\d{1,4}$")]

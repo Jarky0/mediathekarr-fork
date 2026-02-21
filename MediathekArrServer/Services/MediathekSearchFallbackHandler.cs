@@ -194,7 +194,7 @@ public partial class MediathekSearchFallbackHandler
         title = title.Replace("–", "-");
         title = title.RemoveAccentButKeepGermanUmlauts();
         title = TitleRegexUnd().Replace(title, "und");
-        title = TitleRegexSymbols().Replace(title, ""); // Remove various symbols
+        title = TitleRegexInvalidChars().Replace(title, ""); // Remove invalid characters
         title = TitleRegexWhitespace().Replace(title, ".").Replace("..", ".");
 
         return title;
@@ -380,8 +380,8 @@ public partial class MediathekSearchFallbackHandler
 
     [GeneratedRegex(@"[&]")]
     private static partial Regex TitleRegexUnd();
-    [GeneratedRegex(@"[/:;""'@#?$%^*+=!<>,()|]")]
-    private static partial Regex TitleRegexSymbols();
+    [GeneratedRegex(@"[/:;,""„""''‚'@#?$%^*+=!|<>,()|·]")]
+    private static partial Regex TitleRegexInvalidChars();
     [GeneratedRegex(@"\s+")]
     private static partial Regex TitleRegexWhitespace();
     [GeneratedRegex(@"Folge\s*\d+:\s*")]
