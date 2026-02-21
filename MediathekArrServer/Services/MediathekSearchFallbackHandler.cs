@@ -86,6 +86,31 @@ public partial class MediathekSearchFallbackHandler
     private static Item CreateRssItem(ApiResultItem item, string? yearSeason, string? season, string? episode, Models.Tvdb.Data? tvdbData, string quality, double sizeMultiplier, string category, string[] categoryValues, string url, string? formattedDate = null)
     {
         var adjustedSize = (long)(item.Size * sizeMultiplier);
+
+        // Enforce m3u8 minimum size to keep Sonarr happy (dependent on quality and duration)
+        if (url.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase))
+        {
+            long bitrate = 600000;
+            switch (quality)
+            {
+                case "1080p":
+                    bitrate = 750000;
+                    break;
+                case "720p":
+                    bitrate = 450000;
+                    break;
+                case "480p":
+                    bitrate = 250000;
+                    break;
+            }
+
+            long estimatedMinSize = (long)item.Duration * bitrate;
+            if (adjustedSize < estimatedMinSize)
+            {
+                adjustedSize = estimatedMinSize;
+            }
+        }
+
         if (!string.IsNullOrEmpty(item.UrlSubtitle))
         {
             adjustedSize += 15000000; // Add 15MB to size if subs are available
