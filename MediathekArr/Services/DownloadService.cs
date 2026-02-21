@@ -235,7 +235,7 @@ public partial class DownloadService
 
             // Convert XML to SRT
             var xmlContent = await File.ReadAllTextAsync(xmlFilePath, Encoding.UTF8);
-            var srtContent = SubtitleConverter.ConvertXmlToSrt(xmlContent);
+            var srtContent = SubtitleConverter.ConvertToSrt(xmlContent);
 
             if (string.IsNullOrEmpty(srtContent))
             {
