@@ -164,7 +164,7 @@ public partial class MediathekSearchFallbackHandler
                 cleanedTitle = null;
             }
 
-            return $"{showName}.{formattedDate}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH.UNCERTAIN-MEDiATHEK".Replace(" ", ".");
+            return $"{showName}.{formattedDate}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH-MEDiATHEK".Replace(" ", ".");
         }
         var episodePattern = @"S\d{1,4}/E\d{1,4}";
         var match = Regex.Match(title, episodePattern);
@@ -182,13 +182,13 @@ public partial class MediathekSearchFallbackHandler
             if (seasonOverride is null || episodeOverride is null)
             {
                 // use data from mediathek
-                return $"{topic}.{seasonAndEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH.UNCERTAIN-MEDiATHEK".Replace(" ", ".");
+                return $"{topic}.{seasonAndEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH-MEDiATHEK".Replace(" ", ".");
             }
 
             // use overwrite data
             var zeroBasedSeason = seasonOverride.Length >= 2 ? seasonOverride : $"0{seasonOverride}";
             var zeroBasedEpisode = episodeOverride.Length >= 2 ? episodeOverride : $"0{episodeOverride}";
-            return $"{showName}.S{zeroBasedSeason}E{zeroBasedEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH.UNCERTAIN-MEDiATHEK".Replace(" ", ".");
+            return $"{showName}.S{zeroBasedSeason}E{zeroBasedEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : "")}{language}.{quality}.WEB.h264.MATCH-MEDiATHEK".Replace(" ", ".");
         }
 
         if (seasonOverride is null || episodeOverride is null)
@@ -207,7 +207,7 @@ public partial class MediathekSearchFallbackHandler
             var zeroBasedSeason = seasonOverride.Length >= 2 ? seasonOverride : $"0{seasonOverride}";
             var zeroBasedEpisode = episodeOverride.Length >= 2 ? episodeOverride : $"0{episodeOverride}";
 
-            return $"{showName}.S{zeroBasedSeason}E{zeroBasedEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : title)}GERMAN.{quality}.WEB.h264.MATCH.UNCERTAIN-MEDiATHEK".Replace(" ", ".");
+            return $"{showName}.S{zeroBasedSeason}E{zeroBasedEpisode}.{(cleanedTitle != null ? $"{cleanedTitle}." : title)}GERMAN.{quality}.WEB.h264.MATCH-MEDiATHEK".Replace(" ", ".");
         }
     }
     private static string FormatTitle(string title)
