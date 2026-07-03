@@ -47,6 +47,7 @@ RUN chmod +x /app/docker_start.sh
 RUN mkdir -p /data/mediathek/incomplete /data/mediathek/complete
 
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:5007
 ENV CONFIG_PATH=/app/config
 
 # Use the shell script to start both processes

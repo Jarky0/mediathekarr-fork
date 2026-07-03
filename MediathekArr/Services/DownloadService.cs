@@ -217,8 +217,9 @@ public partial class DownloadService
                 return false;
             }
 
-            xmlFilePath = Path.Combine(_config.IncompletePath, queueItem.Title + ".xml");
-            var srtFilePath = Path.Combine(_config.IncompletePath, queueItem.Title + ".srt");
+            var safeTitle = SanitizeFileName(queueItem.Title);
+            xmlFilePath = Path.Combine(_config.IncompletePath, safeTitle + ".xml");
+            var srtFilePath = Path.Combine(_config.IncompletePath, safeTitle + ".srt");
 
             // Download XML subtitle file
             _logger.LogInformation("Starting download of subtitle XML for {Title} to path: {Path}", queueItem.Title, xmlFilePath);
@@ -276,7 +277,8 @@ public partial class DownloadService
         try
         {
             var fileExtension = Path.GetExtension(url) ?? ".mp4";
-            var filePath = Path.Combine(_config.IncompletePath, queueItem.Title + fileExtension);
+            var safeTitle = SanitizeFileName(queueItem.Title);
+            var filePath = Path.Combine(_config.IncompletePath, safeTitle + fileExtension);
 
             if (File.Exists(filePath))
             {
@@ -367,9 +369,10 @@ public partial class DownloadService
         _logger.LogInformation("Ensuring complete directory exists at path: {Path}", completeCategoryDir);
         Directory.CreateDirectory(completeCategoryDir);
 
-        var videoPath = Path.Combine(_config.IncompletePath, queueItem.Title + inputExtension);
-        var subtitlePath = Path.Combine(_config.IncompletePath, queueItem.Title + ".srt");
-        var mkvPath = Path.Combine(completeCategoryDir, queueItem.Title + ".mkv");
+        var safeTitle = SanitizeFileName(queueItem.Title);
+        var videoPath = Path.Combine(_config.IncompletePath, safeTitle + inputExtension);
+        var subtitlePath = Path.Combine(_config.IncompletePath, safeTitle + ".srt");
+        var mkvPath = Path.Combine(completeCategoryDir, safeTitle + ".mkv");
 
         if (!File.Exists(videoPath))
         {
@@ -460,5 +463,14 @@ public partial class DownloadService
         {
             _logger.LogError(ex, "Error deleting temporary files.");
         }
+    }
+
+    /// <summary>
+    /// Removes problematic characters from filenames (Unicode, brackets etc.)
+    /// to prevent mkvmerge/ffmpeg failures on certain filesystems.
+    /// </summary>
+    private static string SanitizeFileName(string name)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(name, @"[^\w\.\- ]", "_");
     }
 }
