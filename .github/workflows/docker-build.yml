@@ -1,7 +1,8 @@
 name: Build and Push Docker Image
 on:
+  workflow_dispatch:
   push:
-    branches: [ "main", "beta-stable" ]
+    branches: [ "main", "beta" ]
     paths-ignore:
       - '**.md'
       - '.gitignore'
